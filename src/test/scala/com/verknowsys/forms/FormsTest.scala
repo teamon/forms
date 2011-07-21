@@ -3,16 +3,26 @@ package com.verknowsys.forms
 import org.scalatest._
 import org.scalatest.matchers._
 
+trait MyFields {
+    self: Form[_] =>
+
+    def FloatField(name: String, getter: Entity => Float, validators: Validator[Float]*)(implicit form: Form[Entity]) =
+        new Field(name, getter, validators:_*){
+            def decode(param: String) = try { Some(param.toFloat) } catch { case ex: java.lang.NumberFormatException => None }
+        }
+}
+
 case class User(name: String, age: Int)
 
-class UserForm(entity: Option[User] = None, params: Params = Params.Empty) extends Form[User](entity, params) {
+class UserForm(entity: Option[User] = None, params: Params = Params.Empty) extends Form[User](entity, params) with MyFields {
     def bind = for {
         n <- name
         a <- age
     } yield (entity.map { _.copy _ } getOrElse User.apply _)(n, a)
 
-    val name = stringField("name", _.name, NotEmpty)
-    val age = intField("age", _.age, LessThan(100))
+    val name = StringField("name", _.name, NotEmpty)
+    val age = IntField("age", _.age, LessThan(100))
+    val speed = FloatField("dupa", e => 1.0f)
     // val key = new PublicKeyField("key", _.key)
 
     def fields = name :: age :: Nil

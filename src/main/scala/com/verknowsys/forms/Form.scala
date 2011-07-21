@@ -9,39 +9,46 @@ trait Validators {
     def GreaterThanEqual(v: Int): Validator[Int] = i => LessThan(i)(v)
 }
 
+abstract class Field[Entity, T](val name: String, getter: Entity => T, validators: Validator[T]*)(implicit val form: Form[Entity]) {
+    def decode(param: String): Option[T]
+    def encode(value: T): String = value.toString
 
-abstract class Form[Entity](val entity: Option[Entity], params: Params) extends Validators {
+    lazy val (value, errors) = calculateValue
+
+    def calculateValue: (Option[T], List[String]) = {
+        val value = form.params.get(name).map(decode) getOrElse form.entity.map(getter)
+        val errors = value map { v => (List[String]() /: validators){ (list, f) => f(v).toList ::: list } } getOrElse Nil
+        (value, errors)
+    }
+
+    def isValid = value.isDefined && errors.isEmpty
+}
+
+trait CommonFields {
+    self: Form[_] =>
+
+    def StringField(name: String, getter: Entity => String, validators: Validator[String]*)(implicit form: Form[Entity]) =
+        new Field(name, getter, validators:_*){
+            def decode(param: String) = Some(param)
+        }
+
+    def IntField(name: String, getter: Entity => Int, validators: Validator[Int]*)(implicit form: Form[Entity]) =
+        new Field(name, getter, validators:_*){
+            def decode(param: String) = try { Some(param.toInt) } catch { case ex: java.lang.NumberFormatException => None }
+        }
+}
+
+
+abstract class Form[E](val entity: Option[E], val params: Params) extends Validators with CommonFields {
+    type Entity = E
+
     def bind: Option[Entity]
 
-    def fields: Seq[Field[_]]
+    def fields: Seq[Field[Entity, _]]
 
     def isValid = fields.forall(_.isValid)
 
     def value = bind orElse entity
 
-    abstract class Field[T](val name: String, getter: Entity => T, validators: Validator[T]*) {
-        def decode(param: String): Option[T]
-        def encode(value: T): String = value.toString
-
-        lazy val (value, errors) = calculateValue
-
-        def calculateValue: (Option[T], List[String]) = {
-            val value = params.get(name).map(decode) getOrElse entity.map(getter)
-            val errors = value map { v => (List[String]() /: validators){ (list, f) => f(v).toList ::: list } } getOrElse Nil
-            (value, errors)
-        }
-
-        def isValid = value.isDefined && errors.isEmpty
-    }
-
-    def stringField(name: String, getter: Entity => String, validators: Validator[String]*) =
-        new Field[String](name, getter, validators:_*){
-            def decode(param: String) = Some(param)
-        }
-
-    def intField(name: String, getter: Entity => Int, validators: Validator[Int]*) =
-        new Field[Int](name, getter, validators:_*){
-            def decode(param: String) = try { Some(param.toInt) } catch { case ex: java.lang.NumberFormatException => None }
-        }
-
+    implicit val self = this
 }
