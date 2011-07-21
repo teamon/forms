@@ -1,0 +1,9 @@
+.DS_Store
+*.class
+target/
+logs/
+lib_managed/
+src_managed/
+project/boot/
+project/plugins/project/build.properties
+.scala_dependencies
