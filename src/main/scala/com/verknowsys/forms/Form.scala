@@ -1,16 +1,27 @@
 package com.verknowsys.forms
 
-abstract class Form[Entity](val entity: Option[Entity] = None){
-    val singleton: Any
-    type Bind
+abstract class Form[Entity](val entity: Option[Entity], params: Params) {
+    def bind: Option[Entity]
 
-    protected def bind(f: Bind): Entity
-    // protected def binder: Bind = entity.map { _.copy _ } getOrElse { singleton.apply _ }
+    def fields: Seq[Field[_]]
 
-    // lazy val value = bind(binder)
+    lazy val value = bind orElse entity
 
-    def fields: Seq[Field[Entity, _]]
+    abstract class Field[T](val name: String, getter: Entity => T) {
+        def decode(param: String): Option[T]
+        def encode(value: T): String = value.toString
 
-    // def field[T](name: String, getter: (Entity) => T, default: T) = new Field(name, getter, default)
+        def value: Option[T] = params.get(name).flatMap(decode) orElse entity.map(getter)
+    }
+
+    def stringField(name: String, getter: Entity => String, default: Option[String] = None) =
+        new Field[String](name, getter){
+            def decode(param: String) = Some(param)
+        }
+
+    def intField(name: String, getter: Entity => Int, default: Option[Int] = None) =
+        new Field[Int](name, getter){
+            def decode(param: String) = try { Some(param.toInt) } catch { case ex: java.lang.NumberFormatException => None }
+        }
+
 }
-
