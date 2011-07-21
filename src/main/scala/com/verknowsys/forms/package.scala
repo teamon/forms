@@ -7,4 +7,6 @@ package object forms {
     object Params {
         val Empty: Params = Map()
     }
+
+    type Validator[T] = Function1[T, Option[String]]
 }
